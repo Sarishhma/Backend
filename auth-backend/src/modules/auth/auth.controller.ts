@@ -12,6 +12,10 @@ import { loginUser, logoutUser, refreshAccessToken, registerUser, verifyEmail } 
 // The controller calls the service function
 // The service returns data (or throws) back up to the controller
 // The controller sends that data back out as an HTTP response, via reply.send(...)
+
+//Its core job, plainly: listen on a network port (like 3000), receive incoming HTTP requests, figure out which
+//  piece of your code should handle each one based on the URL + method (e.g., POST /api/auth/register → registerHandler),
+//  run that code, and send a response back to whoever asked.
 export async function registerhandler (
     request: FastifyRequest<{Body:RegisterInput}>,
     reply:FastifyReply
