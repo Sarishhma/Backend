@@ -2,8 +2,8 @@
 //  After everything we've done, this file will feel refreshingly simple — because all the hard logic already lives in 
 // auth.service.ts.
 import type {FastifyRequest,FastifyReply} from "fastify";
-import type { LoginInput, LogoutInput, RefreshTokenInput, RegisterInput, VerifyEmailInput } from "./auth.schema.js";
-import { loginUser, logoutUser, refreshAccessToken, registerUser, verifyEmail } from "./auth.service.js";
+import type { ForgotPasswordInput, LoginInput, LogoutInput, RefreshTokenInput, RegisterInput, ResendOtpInput, ResetPasswordInput, VerifyEmailInput } from "./auth.schema.js";
+import { forgotPassword, loginUser, logoutUser, refreshAccessToken, registerUser, resendOtp, resetPassword, verifyEmail } from "./auth.service.js";
 
 // auth.routes.ts  →  auth.controller.ts  →  auth.service.ts
 // The controller does NOT take data from the service and hand it to the route. The actual relationship is:
@@ -59,5 +59,33 @@ export async function logoutHandler(
 ){
     const {refreshToken}= request.body;
     const result = await logoutUser(refreshToken)
+    return reply.status(200).send(result)
+}
+
+export async function resendOtpHandler(
+    request:FastifyRequest<{Body:ResendOtpInput}>,
+    reply:FastifyReply
+){
+    const {email}=request.body;
+    const result =await resendOtp(email);
+    return reply.status(200).send(result)
+
+}
+
+export async function forgotPasswordhandler(
+    request: FastifyRequest<{Body:ForgotPasswordInput}>,
+    reply:FastifyReply
+) {
+    const {email}=request.body;
+    const result= await forgotPassword(email);
+    return reply.status(200).send(result)
+}
+
+export async function resetPasswordHandler(
+    request:FastifyRequest<{Body:ResetPasswordInput}>,
+    reply:FastifyReply
+) {
+    const {email,otp,newPassword}=request.body;
+    const result = await resetPassword(email,otp,newPassword);
     return reply.status(200).send(result)
 }

@@ -17,6 +17,7 @@ model User {
 
   verificationOtps VerificationOtp[]
   refreshTokens    RefreshToken[]
+  passwordResetOtps PasswordResetOtp[]
 }
 
 model VerificationOtp {
@@ -42,5 +43,17 @@ model RefreshToken {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+}
+
+model PasswordResetOtp{
+  id     String         @id @default(uuid())
+  userId  String      
+  otpHash  String
+  expiresAt  DateTime
+  attempts  Int   @default(0) 
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
   @@index([userId])
 }

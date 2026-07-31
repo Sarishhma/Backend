@@ -7,7 +7,7 @@ import { badRequest, conflict, forbidden, notFound, tooManyRequests, unauthorize
 
 import { generateOtp, getOtpExpiry, hashOtp, isOtpExpired, verifyOtpHash } from "../../utils/otp.js";
 import { signAccessToken, signRefreshToken,  verifyRefreshToken } from "../../utils/token.js";
-import { createRefreshToken, createUser, createVerificationOtp, deleteVerificationOtpsForUser, findLatestVerificationOtp, findRefreshTokenById, finduserByEmail, findUserById, incrementOtpAttempts, markEmailAsVerified, revokeAllUserRefreshToken, revokeRefreshToken } from "./auth.repository.js";
+import { createPasswordResetOtp, createRefreshToken, createUser, createVerificationOtp, deletePasswordResetOtpsForUser, deleteVerificationOtpsForUser, findLatestPasswordResetOtp, findLatestVerificationOtp, findRefreshTokenById, finduserByEmail, findUserById, incrementOtpAttempts, incrementPasswordResetAttempts, markEmailAsVerified, revokeAllUserRefreshToken, revokeRefreshToken, updateUserPassword } from "./auth.repository.js";
 
 
 const REFRESH_TOKEN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
@@ -74,7 +74,7 @@ export async function loginUser(email:string,password:string){
         throw unauthorized("Invalid email or password")
     }
     const isPasswordvalid= await  comparepassword(password,user.password);
-    if(isPasswordvalid){
+    if(!isPasswordvalid){
         throw unauthorized("invalid email or password")
     }
     if(!user.isEmailVerified){
@@ -110,13 +110,13 @@ export async function refreshAccessToken(refreshToken:string){
     if(tokenrecord.revoked){
          // This token was already used/revoked once but is being used again —
     // a strong signal it was stolen. Revoke ALL of this user's sessions as a precaution.
-        await revokeAllUserRefreshToken(tokenrecord.id)
+        await revokeAllUserRefreshToken(tokenrecord.userId)
           throw unauthorized("Session invalid. Please log in again");
     }
     if(isOtpExpired(tokenrecord.expiresAt)){// 1. is the OLD token itself expired?
           throw unauthorized("Invalid or expired refresh token");
     }
-    const user = await findUserById(tokenrecord.id)// 2. fetch the user this token belongs to
+    const user = await findUserById(tokenrecord.userId)// 2. fetch the user this token belongs to
       if (!user) {
     throw unauthorized("Invalid or expired refresh token");
   }
@@ -156,4 +156,79 @@ export async function logoutUser(refreshToken:string){
             await revokeRefreshToken(tokenRecord.id);
     }
 return{message:"Loged Out"}
+}
+
+export async function resendOtp(email:string){
+const user = await finduserByEmail(email)
+if(!user){
+    throw notFound("NO account with this email")
+
+}
+if(user.isEmailVerified){
+    throw badRequest("This email is already verified")
+}
+await deleteVerificationOtpsForUser(user.id)
+
+const otp = generateOtp();
+const otpHash=hashOtp(otp);
+const expiresAt= getOtpExpiry();
+
+await createVerificationOtp(user.id,otpHash,expiresAt)
+await sendOtpEmail(user.email,otp)
+
+ return { message: "A new verification code has been sent to your email." };
+
+}
+
+//forgot password 
+
+export async function forgotPassword(email:string){
+    const user = await finduserByEmail(email);
+    // Deliberately do NOT throw an error if user doesn't exist — explained below
+    if(!user){
+        return{message:"If an account with this email exists, a reset code has been sent."}
+    }
+    await deletePasswordResetOtpsForUser(user.id)
+
+    const otp = generateOtp();
+    const otpHash = hashOtp(otp);
+    const expireAt=getOtpExpiry();
+
+    await createPasswordResetOtp(user.id,otpHash,expireAt)
+    await sendOtpEmail(user.email,otp)
+    return { message: "If an account with this email exists, a reset code has been sent." }; 
+}
+
+export async function resetPassword(email:string,otp:string,newPassword:string){
+    const user = await finduserByEmail(email);
+    if(!user){
+        throw notFound("No account found with this email")
+    }
+    const otpRecord =await findLatestPasswordResetOtp(user.id);
+    if(!otpRecord){
+            throw badRequest("No reset code found. Please request a new one");
+    }
+      if (otpRecord.attempts >= env.OTP_MAX_ATTEMPTS) {
+    throw tooManyRequests("Too many incorrect attempts. Please request a new code");
+  }
+
+  if (isOtpExpired(otpRecord.expiresAt)) {
+    throw badRequest("This reset code has expired. Please request a new one");
+  }
+  const isValid =verifyOtpHash(otp,otpRecord.otpHash)
+    if (!isValid) {
+    await incrementPasswordResetAttempts(otpRecord.id);
+    throw badRequest("Incorrect reset code");
+  }
+
+  const newPasswordHash =await hashPassword(newPassword);
+  await updateUserPassword(user.id,newPasswordHash)
+
+
+  await deletePasswordResetOtpsForUser(user.id);
+  await revokeAllUserRefreshToken(user.id);
+
+  return { message: "Password reset successfully. Please log in with your new password." };
+
+
 }

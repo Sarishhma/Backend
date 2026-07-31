@@ -89,3 +89,41 @@ export function revokeAllUserRefreshToken(userId:string){
     })
 }
 // This layer answers only "how do I read/write this data," never "should this be allowed."
+
+//password reset  Otp queries
+
+export function createPasswordResetOtp(
+    userId:string,
+    otpHash:string,
+    expiresAt:Date
+){
+    return  prisma.passwordResetOtp.create({
+        data:{userId,otpHash,expiresAt}
+    })
+}
+export function findLatestPasswordResetOtp(userId:string){
+    return prisma.passwordResetOtp.findFirst({
+        where:{userId},
+        orderBy:{createdAt:"desc"}
+    })
+}
+
+export function incrementPasswordResetAttempts(otpId:string){
+    return prisma.passwordResetOtp.update({
+        where:{id:otpId},
+        data:{attempts:{increment:1}}
+    })
+}
+
+export function deletePasswordResetOtpsForUser(userId:string){
+    return prisma.passwordResetOtp.deleteMany({
+        where:{userId}
+    })
+}
+
+export function updateUserPassword(userId:string,passwordHash:string){
+    return prisma.user.update({
+        where:{id:userId},
+        data:{password:passwordHash}
+    })
+}
