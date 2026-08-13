@@ -1,4 +1,4 @@
-# Auth System — Node.js / Fastify / Prisma / PostgreSQL
+# Auth System 
 
 A backend authentication system built from first principles to understand real-world auth architecture — not just implement it, but understand *why* each piece exists.
 
