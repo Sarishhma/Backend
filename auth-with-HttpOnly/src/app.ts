@@ -6,7 +6,9 @@ import { corsPlugins } from "./plugins/cors.plugin.js";
 import { rateLimitPlugin } from "./plugins/rate-limit-plugin.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { cookiePlugin } from "./plugins/cookie.plugin.js";
-export function buildApp(){//is a function that RETURNS the app, instead of just running it directly here — this is a testability pattern: later, if you write automated tests, you can call buildApp()
+import rateLimit from "@fastify/rate-limit";
+
+export async function buildApp(){//is a function that RETURNS the app, instead of just running it directly here — this is a testability pattern: later, if you write automated tests, you can call buildApp()
     const app = Fastify({
         // this actually creates the real Fastify instance for the first time in this whole project. Everything before this
         //  (authRoutes, the plugins) were just definitions sitting in files, waiting to be plugged into a real app
@@ -20,11 +22,13 @@ env.NODE_ENV==="development"
     app.setSerializerCompiler(serializerCompiler);
 
 
-app.register(errorHandlerPlugin);
-app.register(corsPlugins);
-app.register(rateLimitPlugin);
-app.register(cookiePlugin);
-app.register(authRoutes,{prefix:"/api/auth"});//That prefix option means /register inside auth.routes.ts actually becomes reachable at /api/auth/register — keeping your URL structure organized and namespaced
+await app.register(errorHandlerPlugin);
+await app.register(corsPlugins);
+
+await app.register(rateLimitPlugin)
+
+await app.register(cookiePlugin);
+await app.register(authRoutes,{prefix:"/api/auth"});//That prefix option means /register inside auth.routes.ts actually becomes reachable at /api/auth/register — keeping your URL structure organized and namespaced
 app.get("/health",async()=>{//his exists purely so you (or a deployment platform like Railway/Vercel later) can quickly check "is the server even running at all," separate from checking whether your actual business logic works
     return{status:"ok"}; 
 })

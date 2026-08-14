@@ -44,6 +44,8 @@ if(!user){
 if(user.isEmailVerified){
     throw badRequest("This email is already verified")
 }
+
+
 const otpRecord=await findLatestVerificationOtp(user.id);
 if(!otpRecord){
     throw badRequest("No verification vode found .Please request a new one ")
@@ -80,7 +82,7 @@ export async function loginUser(email:string,password:string){
     if(!user.isEmailVerified){
         throw forbidden("Please verify  your email before logging in ")
     }
-    const accessToken = signAccessToken({sub:user.id, email:user.email});
+    const accessToken = signAccessToken({sub:user.id, email:user.email,role:user.role});
 
     const tokenId = randomUUID();
     const refreshToken=signRefreshToken({sub:user.id,jti:tokenId});
@@ -91,7 +93,7 @@ await createRefreshToken(tokenId,user.id,refreshTokenHash,refreshExpiresAt);
 return{
     accessToken,
     refreshToken,
-    user:{id:user.id,email:user.email}
+    user:{id:user.id,email:user.email,role:user.role}
 }
 
 }
@@ -124,7 +126,7 @@ export async function refreshAccessToken(refreshToken:string){
    // Rotate: revoke the old refresh token, issue a brand new one
 
 await revokeRefreshToken(tokenrecord.id)// 3. kill the OLD token 
-const newAccessToken= signAccessToken({sub:user.id,email:user.email})
+const newAccessToken= signAccessToken({sub:user.id,email:user.email,role:user.role})
 
 const newTokenId = randomUUID()
 const newRefreshToken= signRefreshToken({sub:user.id,jti:newTokenId})

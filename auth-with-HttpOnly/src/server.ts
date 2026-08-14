@@ -1,7 +1,7 @@
 import { buildApp } from "./app.js";
 import { env } from "./config/env.js";
 
-const app= buildApp()
+const app= await buildApp()
 //The moment this file runs, it immediately calls buildApp() — this executes everything inside app.ts: creates the Fastify 
 // instance, registers all your plugins, registers all your routes. By the time this line finishes, app is a fully assembled 
 // (but not yet running) Fastify application

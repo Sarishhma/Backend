@@ -2,7 +2,8 @@ import type { FastifyPluginAsync } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { forgotPasswordSchema, loginSchema, logoutSchema, refreshTokenSchema, registerSchema, resendOtpSchema, resetPasswordSchema, verifyEmailSchema } from "./auth.schema.js";
 import { forgotPasswordhandler, loginHandler, logoutHandler, refreshHandler, registerhandler, resendOtpHandler, resetPasswordHandler, verifyEmailHandler } from "./auth.controller.js";
-import { authGuard } from "../../middleware/auth.js";
+import { authGuard } from "../../middleware/authGuard.js";
+import { requireRole } from "../../middleware/require-role.js";
 
 // Fastify is a web framework whose core job is routing incoming HTTP requests to the right handler code and sending 
 // back responses — and it happens to do this job quickly compared to alternatives, plus it has strong built-in support 
@@ -21,7 +22,12 @@ export const authRoutes:FastifyPluginAsync=async(fastify)=>{
 //  if authGuard throws (no token, invalid token), the route handler (async (request, reply) => {...}) never even runs; 
 // the error goes straight to your error-handler plugin instead. If authGuard
 //  succeeds, execution continues into the handler, and by that point, request.user is already populated and ready to use.
-
+app.get("/admin-only",
+    {preHandler:[authGuard,requireRole("ADMIN")]},
+    async(request,reply)=>{
+        return reply.status(200).send({message:"Welcome admin!",user:request.user})
+    }
+)
     app.post(
         '/register',
         {schema:{body:registerSchema}},

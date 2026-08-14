@@ -6,6 +6,7 @@ import { env } from "../config/env.js";
 export interface AccessTokenPayload{
     sub:string;
     email:string;
+    role:"USER"|"ADMIN"
 }
 export interface RefreshTokenPayload{
     sub:string;
