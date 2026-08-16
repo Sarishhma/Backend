@@ -65,10 +65,12 @@ export function createRefreshToken(
     id:string,
     userId:string,
     tokenHash:string,
-    expiresAt:Date
+    expiresAt:Date,
+    userAgent?:string,
+    ipAddress?:string
 ){
     return prisma.refreshToken.create({
-        data:{id,userId,tokenHash,expiresAt}
+        data:{id,userId,tokenHash,expiresAt,userAgent,ipAddress}
     })
 }
 export function  findRefreshTokenById(id:string){
@@ -125,5 +127,54 @@ export function updateUserPassword(userId:string,passwordHash:string){
     return prisma.user.update({
         where:{id:userId},
         data:{password:passwordHash}
+    })
+
+}
+
+export function incrementFailedLoginAttempts(userId:string){
+    return prisma.user.update({
+        where:{id:userId},
+        data:{failedLoginAttempts:{increment:1}}
+
+    })
+}
+
+export function lockUserAccount (userId:string,lockedUntil:Date){
+    return prisma.user.update({
+        where:{id:userId},
+        data:{lockedUntil}
+    })
+}
+
+export function resetLoginAttempts(userId:string){
+    return prisma.user.update({
+        where :{id:userId},
+        data:{failedLoginAttempts:0,lockedUntil:null}
+    })
+}
+
+export function findActiveSessionsForUser (userId:string){
+    return prisma.refreshToken.findMany({
+        where:{
+            userId,
+            revoked:false,
+            expiresAt:{gt:new Date()},//gte/lte (greater/less than or equal).
+
+
+        },
+        orderBy:{lastUsedAt:"desc"},
+    })
+}
+
+export function touchRefreshToken(id:string){
+    return prisma.refreshToken.update({
+        where:{id},
+        data:{lastUsedAt: new Date()}
+    })
+}
+
+export function findRefreshTokenByIdAndUser(id:string,userId:string){
+    return prisma.refreshToken.findFirst({
+        where:{id,userId}
     })
 }

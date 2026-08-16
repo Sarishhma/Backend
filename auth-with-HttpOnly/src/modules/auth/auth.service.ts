@@ -7,11 +7,21 @@ import { badRequest, conflict, forbidden, notFound, tooManyRequests, unauthorize
 
 import { generateOtp, getOtpExpiry, hashOtp, isOtpExpired, verifyOtpHash } from "../../utils/otp.js";
 import { signAccessToken, signRefreshToken,  verifyRefreshToken } from "../../utils/token.js";
-import { createPasswordResetOtp, createRefreshToken, createUser, createVerificationOtp, deletePasswordResetOtpsForUser, deleteVerificationOtpsForUser, findLatestPasswordResetOtp, findLatestVerificationOtp, findRefreshTokenById, finduserByEmail, findUserById, incrementOtpAttempts, incrementPasswordResetAttempts, markEmailAsVerified, revokeAllUserRefreshToken, revokeRefreshToken, updateUserPassword } from "./auth.repository.js";
+import { createPasswordResetOtp, createRefreshToken, createUser, createVerificationOtp, deletePasswordResetOtpsForUser, deleteVerificationOtpsForUser, findActiveSessionsForUser, findLatestPasswordResetOtp, findLatestVerificationOtp, findRefreshTokenById, findRefreshTokenByIdAndUser, finduserByEmail, findUserById, incrementFailedLoginAttempts, incrementOtpAttempts, incrementPasswordResetAttempts, lockUserAccount, markEmailAsVerified, resetLoginAttempts, revokeAllUserRefreshToken, revokeRefreshToken, updateUserPassword } from "./auth.repository.js";
+
+
 
 
 const REFRESH_TOKEN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+const MAX_FAILED_ATTEMPTS=5;
 
+function calculateLockoutDuration(failedLoginAttempts:number):number {
+     // Number of times they've been locked out before, based on how far past the threshold they are
+    const lockoutCount = Math.floor(failedLoginAttempts/MAX_FAILED_ATTEMPTS);
+    const baseMinutes =1 ;
+    const minutes = baseMinutes* Math.pow(5,lockoutCount-1)// 1min, 5min, 25min, 125min...
+    return minutes * 60 * 1000
+}
 // this is for user registration
 export async function  registerUser(email:string,password:string){
     const existingUser =await finduserByEmail(email)
@@ -70,18 +80,41 @@ if(!otpRecord){
 
 
 // this is for login  or This is where the isEmailVerified gate actually gets enforced, plus real token issuance.
-export async function loginUser(email:string,password:string){
+export async function loginUser(
+    email:string,
+    password:string,
+    userAgent?:string,
+    ipAddress?:string
+){
     const user = await finduserByEmail(email);
     if(!user){
         throw unauthorized("Invalid email or password")
     }
+  // Check lockout BEFORE checking the password
+  if(user.lockedUntil && user.lockedUntil >new Date()){
+    const minutesLeft = Math.ceil((user.lockedUntil.getTime()- Date.now())/60000);
+    throw forbidden(`Account temporarily locked. Try again in ${minutesLeft} minute(s).`)
+  }
+
     const isPasswordvalid= await  comparepassword(password,user.password);
     if(!isPasswordvalid){
+        const newAttempts =user.failedLoginAttempts +1;
+        if(newAttempts >= MAX_FAILED_ATTEMPTS && newAttempts% MAX_FAILED_ATTEMPTS===0){
+         const lockoutMs = calculateLockoutDuration(newAttempts);
+         const lockedUntil= new Date(Date.now()+lockoutMs);
+         await lockUserAccount(user.id,lockedUntil)
+        }
+        await incrementFailedLoginAttempts(user.id);
+
         throw unauthorized("invalid email or password")
     }
     if(!user.isEmailVerified){
         throw forbidden("Please verify  your email before logging in ")
     }
+
+  // Successful login — wipe the slate clean
+    await resetLoginAttempts(user.id)
+
     const accessToken = signAccessToken({sub:user.id, email:user.email,role:user.role});
 
     const tokenId = randomUUID();
@@ -89,7 +122,7 @@ export async function loginUser(email:string,password:string){
     const refreshTokenHash= hashOtp(refreshToken);// reusing our sha256 hash helper
     const refreshExpiresAt= new Date(Date.now()+REFRESH_TOKEN_MS);
 
-await createRefreshToken(tokenId,user.id,refreshTokenHash,refreshExpiresAt);
+await createRefreshToken(tokenId,user.id,refreshTokenHash,refreshExpiresAt,userAgent,ipAddress);
 return{
     accessToken,
     refreshToken,
@@ -233,4 +266,28 @@ export async function resetPassword(email:string,otp:string,newPassword:string){
   return { message: "Password reset successfully. Please log in with your new password." };
 
 
+}
+
+export async function getUserSessions(userId: string) {
+  const sessions = await findActiveSessionsForUser(userId);
+
+  return sessions.map((session) => ({
+    id: session.id,
+    userAgent: session.userAgent,
+    ipAddress: session.ipAddress,
+    createdAt: session.createdAt,
+    lastUsedAt: session.lastUsedAt,
+  }));
+}
+
+export async function revokeSession(sessionId: string, userId: string) {
+  const session = await findRefreshTokenByIdAndUser(sessionId, userId);
+
+  if (!session) {
+    throw notFound("Session not found");
+  }
+
+  await revokeRefreshToken(session.id);
+
+  return { message: "Session revoked successfully" };
 }

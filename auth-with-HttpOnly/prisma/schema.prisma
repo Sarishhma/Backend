@@ -17,6 +17,8 @@ model User {
   password        String
   isEmailVerified Boolean  @default(false)
   role            UserRole @default(USER)
+  failedLoginAttempts  Int @default(0)
+  lockedUntil      DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -43,8 +45,12 @@ model RefreshToken {
   userId    String
   tokenHash String
   revoked   Boolean  @default(false)
+  userAgent  String?
+  ipAddress  String?
+
   expiresAt DateTime
   createdAt DateTime @default(now())
+  lastUsedAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

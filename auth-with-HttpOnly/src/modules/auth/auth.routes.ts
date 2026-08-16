@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { forgotPasswordSchema, loginSchema, logoutSchema, refreshTokenSchema, registerSchema, resendOtpSchema, resetPasswordSchema, verifyEmailSchema } from "./auth.schema.js";
-import { forgotPasswordhandler, loginHandler, logoutHandler, refreshHandler, registerhandler, resendOtpHandler, resetPasswordHandler, verifyEmailHandler } from "./auth.controller.js";
+import { forgotPasswordSchema, loginSchema, logoutSchema, refreshTokenSchema, registerSchema, resendOtpSchema, resetPasswordSchema, sessionParamsSchema, verifyEmailSchema } from "./auth.schema.js";
+import { forgotPasswordhandler, getSessionsHandler, loginHandler, logoutHandler, refreshHandler, registerhandler, resendOtpHandler, resetPasswordHandler, revokeSessionHandler, verifyEmailHandler } from "./auth.controller.js";
 import { authGuard } from "../../middleware/authGuard.js";
 import { requireRole } from "../../middleware/require-role.js";
 
@@ -72,6 +72,19 @@ app.get("/admin-only",
         '/reset-password',
         {schema:{body:resetPasswordSchema}},
         resetPasswordHandler
+    )
+
+    app.get(
+        '/session',
+        {preHandler:authGuard},
+        getSessionsHandler
+
+    )
+
+    app.delete(
+        '/session/:sessionId',
+        {preHandler:authGuard,schema:{params:sessionParamsSchema}},
+        revokeSessionHandler
     )
 
 
