@@ -51,9 +51,7 @@ export const resetPasswordSchema= z.object({
     .regex(/[0-9]/, "Password must contain at least one number")
 })
 
-export const sessionParamsSchema = z.object({
-  sessionId:z.string().uuid("invalid session Id")
-})
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ResendOtpInput = z.infer<typeof resendOtpSchema>;
@@ -62,4 +60,3 @@ export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 export type LogoutInput = z.infer<typeof logoutSchema>;   
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;  
-export type sessionParamsInput = z.infer<typeof sessionParamsSchema>

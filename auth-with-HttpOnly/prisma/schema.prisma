@@ -42,19 +42,25 @@ model VerificationOtp {
 
 model RefreshToken {
   id        String   @id @default(uuid())
+  sessionId   String
+
   userId    String
   tokenHash String
-  revoked   Boolean  @default(false)
+
+ 
+
   userAgent  String?
   ipAddress  String?
 
   expiresAt DateTime
   createdAt DateTime @default(now())
   lastUsedAt DateTime  @default(now())
+  revokedAt  DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([sessionId])
 }
 
 model PasswordResetOtp{

@@ -2,8 +2,8 @@
 //  After everything we've done, this file will feel refreshingly simple — because all the hard logic already lives in 
 // auth.service.ts.
 import type {FastifyRequest,FastifyReply} from "fastify";
-import type { ForgotPasswordInput, LoginInput, LogoutInput, RefreshTokenInput, RegisterInput, ResendOtpInput, ResetPasswordInput, sessionParamsInput, VerifyEmailInput } from "./auth.schema.js";
-import { forgotPassword, getUserSessions, loginUser, logoutUser, refreshAccessToken, registerUser, resendOtp, resetPassword, revokeSession, verifyEmail } from "./auth.service.js";
+import type { ForgotPasswordInput, LoginInput,  RegisterInput, ResendOtpInput, ResetPasswordInput, VerifyEmailInput } from "../schemas/auth.schema.js";
+import { forgotPassword,  loginUser, logoutUser, refreshAccessToken, registerUser, resendOtp, resetPassword,  verifyEmail } from "../services/auth.service.js";
 
 // auth.routes.ts  →  auth.controller.ts  →  auth.service.ts
 // The controller does NOT take data from the service and hand it to the route. The actual relationship is:
@@ -133,19 +133,5 @@ export async function resetPasswordHandler(
 }
 
 
-export async function getSessionsHandler(
-  request: FastifyRequest,
-  reply: FastifyReply
-) {
-  const sessions = await getUserSessions(request.user!.sub);
-  return reply.status(200).send({ sessions });
-}
 
-export async function revokeSessionHandler(
-  request: FastifyRequest<{ Params: sessionParamsInput }>,
-  reply: FastifyReply
-) {
-  const { sessionId } = request.params;
-  const result = await revokeSession(sessionId, request.user!.sub);
-  return reply.status(200).send(result);
-}
+

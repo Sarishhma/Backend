@@ -1,13 +1,13 @@
 
 import { randomUUID } from "crypto";
-import { env } from "../../config/env.js";
-import { sendOtpEmail } from "../../lib/email.js";
-import { comparepassword, hashPassword } from "../../lib/password.js";
-import { badRequest, conflict, forbidden, notFound, tooManyRequests, unauthorized } from "../../utils/app-error.js";
-
-import { generateOtp, getOtpExpiry, hashOtp, isOtpExpired, verifyOtpHash } from "../../utils/otp.js";
-import { signAccessToken, signRefreshToken,  verifyRefreshToken } from "../../utils/token.js";
-import { createPasswordResetOtp, createRefreshToken, createUser, createVerificationOtp, deletePasswordResetOtpsForUser, deleteVerificationOtpsForUser, findActiveSessionsForUser, findLatestPasswordResetOtp, findLatestVerificationOtp, findRefreshTokenById, findRefreshTokenByIdAndUser, finduserByEmail, findUserById, incrementFailedLoginAttempts, incrementOtpAttempts, incrementPasswordResetAttempts, lockUserAccount, markEmailAsVerified, resetLoginAttempts, revokeAllUserRefreshToken, revokeRefreshToken, updateUserPassword } from "./auth.repository.js";
+import { env } from "../../../config/env.js";
+import { sendOtpEmail } from "../../../lib/email.js";
+import { comparepassword, hashPassword } from "../../../lib/password.js";
+import { badRequest, conflict, forbidden, notFound, tooManyRequests, unauthorized } from "../../../utils/app-error.js";
+import { generateOtp, getOtpExpiry, hashOtp, isOtpExpired, verifyOtpHash } from "../../../utils/otp.js";
+import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../../../utils/token.js";
+import { createPasswordResetOtp,  createUser, createVerificationOtp, deletePasswordResetOtpsForUser, deleteVerificationOtpsForUser,  findLatestPasswordResetOtp, findLatestVerificationOtp,  finduserByEmail, findUserById, incrementFailedLoginAttempts, incrementOtpAttempts, incrementPasswordResetAttempts, lockUserAccount, markEmailAsVerified, resetLoginAttempts,  updateUserPassword  } from "../repositories/auth.repository.js";
+import { createRefreshToken, findRefreshTokenById, revokeAllUserRefreshTokens, revokeRefreshToken } from "../repositories/session.repository.js";
 
 
 
@@ -118,11 +118,12 @@ export async function loginUser(
     const accessToken = signAccessToken({sub:user.id, email:user.email,role:user.role});
 
     const tokenId = randomUUID();
+    const sessionId = randomUUID();
     const refreshToken=signRefreshToken({sub:user.id,jti:tokenId});
     const refreshTokenHash= hashOtp(refreshToken);// reusing our sha256 hash helper
     const refreshExpiresAt= new Date(Date.now()+REFRESH_TOKEN_MS);
 
-await createRefreshToken(tokenId,user.id,refreshTokenHash,refreshExpiresAt,userAgent,ipAddress);
+await createRefreshToken(tokenId,sessionId,user.id,refreshTokenHash,refreshExpiresAt,userAgent,ipAddress);
 return{
     accessToken,
     refreshToken,
@@ -142,10 +143,10 @@ export async function refreshAccessToken(refreshToken:string){
     if(!tokenrecord){
          throw unauthorized("Invalid or expired refresh Token")
     }
-    if(tokenrecord.revoked){
+    if(tokenrecord.revokedAt){
          // This token was already used/revoked once but is being used again —
     // a strong signal it was stolen. Revoke ALL of this user's sessions as a precaution.
-        await revokeAllUserRefreshToken(tokenrecord.userId)
+        await revokeAllUserRefreshTokens(tokenrecord.userId)
           throw unauthorized("Session invalid. Please log in again");
     }
     if(isOtpExpired(tokenrecord.expiresAt)){// 1. is the OLD token itself expired?
@@ -166,7 +167,14 @@ const newRefreshToken= signRefreshToken({sub:user.id,jti:newTokenId})
 const newRefreshTokenHash= hashOtp(newRefreshToken)
 const newExpireAt = new Date(Date.now()+ REFRESH_TOKEN_MS)
 
-await createRefreshToken(newTokenId,user.id,newRefreshTokenHash,newExpireAt)//save to db
+await createRefreshToken(   
+  newTokenId,
+    user.id,
+    tokenrecord.sessionId,
+    newRefreshTokenHash,
+    newExpireAt,
+    tokenrecord.userAgent ?? undefined,
+    tokenrecord.ipAddress ?? undefined)//save to db
 return{
     accessToken:newAccessToken,
     refreshToken:newRefreshToken
@@ -261,33 +269,11 @@ export async function resetPassword(email:string,otp:string,newPassword:string){
 
 
   await deletePasswordResetOtpsForUser(user.id);
-  await revokeAllUserRefreshToken(user.id);
+  await revokeAllUserRefreshTokens(user.id);
 
   return { message: "Password reset successfully. Please log in with your new password." };
 
 
 }
 
-export async function getUserSessions(userId: string) {
-  const sessions = await findActiveSessionsForUser(userId);
 
-  return sessions.map((session) => ({
-    id: session.id,
-    userAgent: session.userAgent,
-    ipAddress: session.ipAddress,
-    createdAt: session.createdAt,
-    lastUsedAt: session.lastUsedAt,
-  }));
-}
-
-export async function revokeSession(sessionId: string, userId: string) {
-  const session = await findRefreshTokenByIdAndUser(sessionId, userId);
-
-  if (!session) {
-    throw notFound("Session not found");
-  }
-
-  await revokeRefreshToken(session.id);
-
-  return { message: "Session revoked successfully" };
-}

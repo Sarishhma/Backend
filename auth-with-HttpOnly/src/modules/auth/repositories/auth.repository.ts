@@ -1,6 +1,8 @@
-import { prisma } from "../../lib/prisma.js";
+
 // This is the only file in the entire auth module allowed to call prisma directly — 
 // everything else (service, controller) goes through these functions instead.
+
+import { prisma } from "../../../lib/prisma.js"
 
 //create user
 export  function createUser(email:string,passwordHash:string){
@@ -60,36 +62,9 @@ export function deleteVerificationOtpsForUser(userId:string){
         where:{userId}
     })
 }
-// ── Refresh token queries ──────────────────────────────
-export function createRefreshToken(
-    id:string,
-    userId:string,
-    tokenHash:string,
-    expiresAt:Date,
-    userAgent?:string,
-    ipAddress?:string
-){
-    return prisma.refreshToken.create({
-        data:{id,userId,tokenHash,expiresAt,userAgent,ipAddress}
-    })
-}
-export function  findRefreshTokenById(id:string){
-    return prisma.refreshToken.findUnique({
-        where:{id}
-    })
-}
-export function revokeRefreshToken(id:string){
-    return prisma.refreshToken.update({
-        where:{id},
-        data:{revoked:true}
-    })
-}
-export function revokeAllUserRefreshToken(userId:string){
-    return prisma.refreshToken.updateMany({
-        where:{userId},
-        data:{revoked:true}
-    })
-}
+
+
+
 // This layer answers only "how do I read/write this data," never "should this be allowed."
 
 //password reset  Otp queries
@@ -153,28 +128,7 @@ export function resetLoginAttempts(userId:string){
     })
 }
 
-export function findActiveSessionsForUser (userId:string){
-    return prisma.refreshToken.findMany({
-        where:{
-            userId,
-            revoked:false,
-            expiresAt:{gt:new Date()},//gte/lte (greater/less than or equal).
 
 
-        },
-        orderBy:{lastUsedAt:"desc"},
-    })
-}
 
-export function touchRefreshToken(id:string){
-    return prisma.refreshToken.update({
-        where:{id},
-        data:{lastUsedAt: new Date()}
-    })
-}
 
-export function findRefreshTokenByIdAndUser(id:string,userId:string){
-    return prisma.refreshToken.findFirst({
-        where:{id,userId}
-    })
-}

@@ -4,9 +4,11 @@ import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod
 import { errorHandlerPlugin } from "./plugins/error-handler-plugin.js";
 import { corsPlugins } from "./plugins/cors.plugin.js";
 import { rateLimitPlugin } from "./plugins/rate-limit-plugin.js";
-import { authRoutes } from "./modules/auth/auth.routes.js";
+
 import { cookiePlugin } from "./plugins/cookie.plugin.js";
 import rateLimit from "@fastify/rate-limit";
+import { authRoutes } from "./modules/auth/routes/auth.routes.js";
+import { sessionRoutes } from "./modules/auth/routes/session.routes.js";
 
 export async function buildApp(){//is a function that RETURNS the app, instead of just running it directly here — this is a testability pattern: later, if you write automated tests, you can call buildApp()
     const app = Fastify({
@@ -29,6 +31,7 @@ await app.register(rateLimitPlugin)
 
 await app.register(cookiePlugin);
 await app.register(authRoutes,{prefix:"/api/auth"});//That prefix option means /register inside auth.routes.ts actually becomes reachable at /api/auth/register — keeping your URL structure organized and namespaced
+await app.register(sessionRoutes,{prefix:"/api/auth",})
 app.get("/health",async()=>{//his exists purely so you (or a deployment platform like Railway/Vercel later) can quickly check "is the server even running at all," separate from checking whether your actual business logic works
     return{status:"ok"}; 
 })
