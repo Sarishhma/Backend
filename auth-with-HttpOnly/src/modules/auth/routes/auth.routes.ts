@@ -1,9 +1,11 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { forgotPasswordSchema, loginSchema, logoutSchema, refreshTokenSchema, registerSchema, resendOtpSchema, resetPasswordSchema, sessionParamsSchema, verifyEmailSchema } from "./auth.schema.js";
-import { forgotPasswordhandler, getSessionsHandler, loginHandler, logoutHandler, refreshHandler, registerhandler, resendOtpHandler, resetPasswordHandler, revokeSessionHandler, verifyEmailHandler } from "./auth.controller.js";
-import { authGuard } from "../../middleware/authGuard.js";
-import { requireRole } from "../../middleware/require-role.js";
+import { forgotPasswordSchema, loginSchema, logoutSchema, refreshTokenSchema, registerSchema, resendOtpSchema, resetPasswordSchema, verifyEmailSchema } from "../schemas/auth.schema.js";
+import { forgotPasswordhandler, loginHandler, logoutHandler, refreshHandler, registerhandler, resendOtpHandler, resetPasswordHandler, verifyEmailHandler } from "../controllers/auth.controller.js";
+import { authGuard } from "../../../middleware/authGuard.js";
+import { requireRole } from "../../../middleware/require-role.js";
+
+
 
 // Fastify is a web framework whose core job is routing incoming HTTP requests to the right handler code and sending 
 // back responses — and it happens to do this job quickly compared to alternatives, plus it has strong built-in support 
@@ -74,18 +76,7 @@ app.get("/admin-only",
         resetPasswordHandler
     )
 
-    app.get(
-        '/session',
-        {preHandler:authGuard},
-        getSessionsHandler
-
-    )
-
-    app.delete(
-        '/session/:sessionId',
-        {preHandler:authGuard,schema:{params:sessionParamsSchema}},
-        revokeSessionHandler
-    )
+ 
 
 
 }

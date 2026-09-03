@@ -1,14 +1,13 @@
 import {
     findActiveSessionsForUser,
-    findRefreshTokenByIdAndUser,
     findSessionByIdAndUser,
-    revokeRefreshToken,
     revokeSession as revokeSessionRepository,
 } from "../repositories/session.repository.js";
 
 import { notFound } from "../../../utils/app-error.js";
+import { prisma } from "../../../lib/prisma.js";
 
-
+// Session ID identifies a particular login/device, while refresh tokens are the credentials that keep that session authenticated. This allows users to revoke one device without logging out their other devices.
 export async function getUserSessions(userId: string) {
     const sessions = await findActiveSessionsForUser(userId);
 
@@ -35,9 +34,16 @@ export async function revokeSession(
         throw notFound("Session not found");
     }
 
-    await revokeSessionRepository(session.id,userId);
+    await revokeSessionRepository(session.sessionId,userId);
 
     return {
         message: "Session revoked successfully",
     };
+}
+
+export function revokeSessionFamily(sessionId: string) {
+  return prisma.refreshToken.updateMany({
+    where: { sessionId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
 }

@@ -74,3 +74,29 @@ model PasswordResetOtp{
   user User @relation(fields:[userId],references:[id],onDelete:Cascade)
   @@index([userId])
 }
+
+enum AuditEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGOUT
+  REGISTER
+  EMAIL_VERIFIED
+  PASSWORD_RESET
+  ACCOUNT_LOCKED
+  TOKEN_REUSE_DETECTED
+  SESSION_REVOKED
+}
+
+model AuditLog {
+  id        String         @id @default(uuid())
+  userId    String?
+  eventType AuditEventType
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime       @default(now())
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt])
+}

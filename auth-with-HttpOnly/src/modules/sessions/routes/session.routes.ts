@@ -5,7 +5,7 @@ import {
     revokeSessionHandler,
 } from "../controllers/session.controller.js";
 import { authGuard } from "../../../middleware/authGuard.js";
-import type { sessionParamsInput } from "../schemas/session.schema.js";
+import type { sessionParamsInput } from "../schema/session.schema.js";
 
 export async function sessionRoutes(fastify: FastifyInstance) {
 

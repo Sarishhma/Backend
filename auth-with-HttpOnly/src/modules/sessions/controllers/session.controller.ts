@@ -4,7 +4,7 @@ import {
     getUserSessions,
     revokeSession,
 } from "../services/session.service.js";
-import type { sessionParamsInput } from "../schemas/session.schema.js";
+import type { sessionParamsInput } from "../schema/session.schema.js";
 
 
 export async function getSessionsHandler(

@@ -7,7 +7,8 @@ import { badRequest, conflict, forbidden, notFound, tooManyRequests, unauthorize
 import { generateOtp, getOtpExpiry, hashOtp, isOtpExpired, verifyOtpHash } from "../../../utils/otp.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../../../utils/token.js";
 import { createPasswordResetOtp,  createUser, createVerificationOtp, deletePasswordResetOtpsForUser, deleteVerificationOtpsForUser,  findLatestPasswordResetOtp, findLatestVerificationOtp,  finduserByEmail, findUserById, incrementFailedLoginAttempts, incrementOtpAttempts, incrementPasswordResetAttempts, lockUserAccount, markEmailAsVerified, resetLoginAttempts,  updateUserPassword  } from "../repositories/auth.repository.js";
-import { createRefreshToken, findRefreshTokenById, revokeAllUserRefreshTokens, revokeRefreshToken } from "../repositories/session.repository.js";
+import { createRefreshToken, findRefreshTokenById, revokeAllUserRefreshTokens, revokeRefreshToken } from "../../sessions/repositories/session.repository.js";
+import { logAuditEvent } from "../../audit/services/audit.service.js";
 
 
 
@@ -31,6 +32,13 @@ export async function  registerUser(email:string,password:string){
  
 const passwordHash= await hashPassword(password);
 const user =await createUser(email,passwordHash)
+
+// Audit successful registration
+await logAuditEvent(
+    "REGISTER",
+    user.id
+);
+
 await deleteVerificationOtpsForUser(user.id)
 const otp = generateOtp();
 const otpHash=hashOtp(otp)
@@ -73,6 +81,11 @@ if(!otpRecord){
   }
 
   await markEmailAsVerified(user.id);
+
+  await logAuditEvent(
+    "EMAIL_VERIFIED",
+    user.id
+  )
   await deleteVerificationOtpsForUser(user.id);
     return { message: "Email verified successfully. You can now log in." };
 
@@ -103,8 +116,22 @@ export async function loginUser(
          const lockoutMs = calculateLockoutDuration(newAttempts);
          const lockedUntil= new Date(Date.now()+lockoutMs);
          await lockUserAccount(user.id,lockedUntil)
+
+         await logAuditEvent(
+            "ACCOUNT_LOCKED",
+            user.id,
+            ipAddress,
+            userAgent
+         )
         }
         await incrementFailedLoginAttempts(user.id);
+
+        await logAuditEvent(
+            "LOGIN_FAILED",
+            user.id,
+            ipAddress,
+            userAgent
+        )
 
         throw unauthorized("invalid email or password")
     }
@@ -113,7 +140,15 @@ export async function loginUser(
     }
 
   // Successful login — wipe the slate clean
+    await logAuditEvent(
+        "LOGIN_SUCCESS",
+        user.id,
+         ipAddress,
+        userAgent,
+       
+    )
     await resetLoginAttempts(user.id)
+  
 
     const accessToken = signAccessToken({sub:user.id, email:user.email,role:user.role});
 
@@ -146,6 +181,10 @@ export async function refreshAccessToken(refreshToken:string){
     if(tokenrecord.revokedAt){
          // This token was already used/revoked once but is being used again —
     // a strong signal it was stolen. Revoke ALL of this user's sessions as a precaution.
+     await logAuditEvent(
+        "TOKEN_REUSE_DETECTED",
+        tokenrecord.userId
+     )
         await revokeAllUserRefreshTokens(tokenrecord.userId)
           throw unauthorized("Session invalid. Please log in again");
     }
@@ -169,8 +208,8 @@ const newExpireAt = new Date(Date.now()+ REFRESH_TOKEN_MS)
 
 await createRefreshToken(   
   newTokenId,
-    user.id,
     tokenrecord.sessionId,
+     user.id,
     newRefreshTokenHash,
     newExpireAt,
     tokenrecord.userAgent ?? undefined,
@@ -197,6 +236,10 @@ export async function logoutUser(refreshToken:string){
     // the exact matching row in your RefreshToken database table
     if(tokenRecord){
             await revokeRefreshToken(tokenRecord.id);
+            await logAuditEvent(
+                "LOGOUT",
+                tokenRecord.userId
+            )
     }
 return{message:"Loged Out"}
 }
@@ -262,6 +305,7 @@ export async function resetPassword(email:string,otp:string,newPassword:string){
     if (!isValid) {
     await incrementPasswordResetAttempts(otpRecord.id);
     throw badRequest("Incorrect reset code");
+
   }
 
   const newPasswordHash =await hashPassword(newPassword);
@@ -270,6 +314,11 @@ export async function resetPassword(email:string,otp:string,newPassword:string){
 
   await deletePasswordResetOtpsForUser(user.id);
   await revokeAllUserRefreshTokens(user.id);
+
+  await logAuditEvent(
+    "PASSWORD_RESET",
+    user.id
+  )
 
   return { message: "Password reset successfully. Please log in with your new password." };
 
