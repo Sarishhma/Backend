@@ -71,7 +71,20 @@ export async function loginHandler(
 
   const result = await loginUser(email, password, userAgent, ipAddress);
 
-  setAuthCookies(reply, result.accessToken, result.refreshToken);
+  // 2FA is enabled — don't issue real auth cookies yet
+  if (result.requiresTwoFactor) {
+    return reply.status(200).send({
+      requiresTwoFactor: true,
+      challengeToken: result.challengeToken,
+    });
+  }
+   // Normal login — issue auth cookies
+  setAuthCookies(
+    reply,
+    result.accessToken,
+    result.refreshToken
+  );
+
   return reply.status(200).send({ user: result.user });
 }
 export async function refreshHandler(

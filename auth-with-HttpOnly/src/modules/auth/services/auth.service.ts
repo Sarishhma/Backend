@@ -5,7 +5,7 @@ import { sendOtpEmail } from "../../../lib/email.js";
 import { comparepassword, hashPassword } from "../../../lib/password.js";
 import { badRequest, conflict, forbidden, notFound, tooManyRequests, unauthorized } from "../../../utils/app-error.js";
 import { generateOtp, getOtpExpiry, hashOtp, isOtpExpired, verifyOtpHash } from "../../../utils/otp.js";
-import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../../../utils/token.js";
+import { signAccessToken, signRefreshToken, signTwoFactorChallenge, verifyRefreshToken } from "../../../utils/token.js";
 import { createPasswordResetOtp,  createUser, createVerificationOtp, deletePasswordResetOtpsForUser, deleteVerificationOtpsForUser,  findLatestPasswordResetOtp, findLatestVerificationOtp,  finduserByEmail, findUserById, incrementFailedLoginAttempts, incrementOtpAttempts, incrementPasswordResetAttempts, lockUserAccount, markEmailAsVerified, resetLoginAttempts,  updateUserPassword  } from "../repositories/auth.repository.js";
 import { createRefreshToken, findRefreshTokenById, revokeAllUserRefreshTokens, revokeRefreshToken } from "../../sessions/repositories/session.repository.js";
 import { logAuditEvent } from "../../audit/services/audit.service.js";
@@ -91,14 +91,28 @@ if(!otpRecord){
 
 }
 
-
+type LoginResult =
+  | {
+      requiresTwoFactor: true;
+      challengeToken: string;
+    }
+  | {
+      requiresTwoFactor: false;
+      accessToken: string;
+      refreshToken: string;
+      user: {
+        id: string;
+        email: string;
+        role: "USER" | "ADMIN";
+      };
+    };
 // this is for login  or This is where the isEmailVerified gate actually gets enforced, plus real token issuance.
 export async function loginUser(
     email:string,
     password:string,
     userAgent?:string,
     ipAddress?:string
-){
+):Promise<LoginResult>{
     const user = await finduserByEmail(email);
     if(!user){
         throw unauthorized("Invalid email or password")
@@ -148,7 +162,34 @@ export async function loginUser(
        
     )
     await resetLoginAttempts(user.id)
-  
+
+    
+  // -----------------------------------------
+  // 2FA CHECK
+  // -----------------------------------------
+
+  if (user.isTwoFactorEnabled) {
+    const challengeToken = signTwoFactorChallenge({
+      sub: user.id,
+      type: "2fa",
+    });
+
+    return {
+      requiresTwoFactor: true,
+      challengeToken,
+    };
+  }
+    // -----------------------------------------
+  // NORMAL LOGIN — NO 2FA
+  // -----------------------------------------
+
+  await logAuditEvent(
+    "LOGIN_SUCCESS",
+    user.id,
+    ipAddress,
+    userAgent
+  );
+
 
     const accessToken = signAccessToken({sub:user.id, email:user.email,role:user.role});
 
@@ -160,6 +201,7 @@ export async function loginUser(
 
 await createRefreshToken(tokenId,sessionId,user.id,refreshTokenHash,refreshExpiresAt,userAgent,ipAddress);
 return{
+    requiresTwoFactor:false,
     accessToken,
     refreshToken,
     user:{id:user.id,email:user.email,role:user.role}

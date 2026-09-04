@@ -46,3 +46,39 @@ export function verifyRefreshToken (token:string):RefreshTokenPayload{
     });
     return decoded as RefreshTokenPayload;
 }
+
+export interface TwoFactorChallengePayload {
+  sub: string;
+  type: "2fa";
+}
+
+const TWO_FACTOR_CHALLENGE_EXPIRES_IN = "5m";
+
+export function signTwoFactorChallenge(
+  payload: TwoFactorChallengePayload
+): string {
+  return jwt.sign(
+    payload,
+    env.JWT_ACCESS_SECRET,
+    {
+      expiresIn: TWO_FACTOR_CHALLENGE_EXPIRES_IN,
+      issuer: ISSUER,
+    }
+  );
+}
+
+export function verifyTwoFactorChallenge(
+  token: string
+): TwoFactorChallengePayload {
+  const decoded = jwt.verify(token, env.JWT_ACCESS_SECRET, {
+    issuer: ISSUER,
+  });
+
+  const payload = decoded as TwoFactorChallengePayload;
+
+  if (payload.type !== "2fa") {
+    throw new Error("Invalid 2FA challenge");
+  }
+
+  return payload;
+}

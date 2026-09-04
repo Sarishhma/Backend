@@ -9,6 +9,7 @@ import { cookiePlugin } from "./plugins/cookie.plugin.js";
 import { authRoutes } from "./modules/auth/routes/auth.routes.js";
 import { sessionRoutes } from "./modules/sessions/routes/session.routes.js";
 import { auditRoutes } from "./modules/audit/routes/audit.routes.js";
+import twoFactorRoutes from "./modules/two-factor/routes/two-factor.routes.js";
 
 export async function buildApp(){//is a function that RETURNS the app, instead of just running it directly here — this is a testability pattern: later, if you write automated tests, you can call buildApp()
     const app = Fastify({
@@ -36,6 +37,7 @@ await app.register(
     auditRoutes,
     { prefix: "/api/audit-logs" }
 );
+await app.register(twoFactorRoutes,{prefix:"/api/two-factors"})
 app.get("/health",async()=>{//This exists purely so you (or a deployment platform like Railway/Vercel later) can quickly check "is the server even running at all," separate from checking whether your actual business logic works
     return{status:"ok"}; 
 })

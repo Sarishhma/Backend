@@ -6,7 +6,8 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
-enum UserRole{
+
+enum UserRole {
   USER
   ADMIN
 }
@@ -17,13 +18,18 @@ model User {
   password        String
   isEmailVerified Boolean  @default(false)
   role            UserRole @default(USER)
-  failedLoginAttempts  Int @default(0)
-  lockedUntil      DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
 
-  verificationOtps VerificationOtp[]
-  refreshTokens    RefreshToken[]
+  //TOTP 2FA
+  totpSecret         String?
+  isTwoFactorEnabled Boolean @default(false)
+
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  verificationOtps  VerificationOtp[]
+  refreshTokens     RefreshToken[]
   passwordResetOtps PasswordResetOtp[]
 }
 
@@ -41,19 +47,17 @@ model VerificationOtp {
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid())
-  sessionId   String
+  id        String @id @default(uuid())
+  sessionId String
 
   userId    String
   tokenHash String
 
- 
+  userAgent String?
+  ipAddress String?
 
-  userAgent  String?
-  ipAddress  String?
-
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
   lastUsedAt DateTime  @default(now())
   revokedAt  DateTime?
 
@@ -63,15 +67,16 @@ model RefreshToken {
   @@index([sessionId])
 }
 
-model PasswordResetOtp{
-  id     String         @id @default(uuid())
-  userId  String      
-  otpHash  String
-  expiresAt  DateTime
-  attempts  Int   @default(0) 
-  createdAt DateTime  @default(now())
+model PasswordResetOtp {
+  id        String   @id @default(uuid())
+  userId    String
+  otpHash   String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
 
-  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
