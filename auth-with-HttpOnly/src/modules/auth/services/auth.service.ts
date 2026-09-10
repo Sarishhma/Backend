@@ -122,7 +122,9 @@ export async function loginUser(
     const minutesLeft = Math.ceil((user.lockedUntil.getTime()- Date.now())/60000);
     throw forbidden(`Account temporarily locked. Try again in ${minutesLeft} minute(s).`)
   }
-
+    if(!user.password){
+      throw unauthorized("Invalid email or password")
+    }
     const isPasswordvalid= await  comparepassword(password,user.password);
     if(!isPasswordvalid){
         const newAttempts =user.failedLoginAttempts +1;
@@ -153,14 +155,8 @@ export async function loginUser(
         throw forbidden("Please verify  your email before logging in ")
     }
 
-  // Successful login — wipe the slate clean
-    await logAuditEvent(
-        "LOGIN_SUCCESS",
-        user.id,
-         ipAddress,
-        userAgent,
-       
-    )
+
+
     await resetLoginAttempts(user.id)
 
     
@@ -182,6 +178,7 @@ export async function loginUser(
     // -----------------------------------------
   // NORMAL LOGIN — NO 2FA
   // -----------------------------------------
+  // Successful login — wipe the slate clean
 
   await logAuditEvent(
     "LOGIN_SUCCESS",

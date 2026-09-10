@@ -7,30 +7,38 @@ datasource db {
   provider = "postgresql"
 }
 
-enum UserRole {
-  USER
-  ADMIN
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  GITHUB
 }
 
 model User {
-  id              String   @id @default(uuid())
-  email           String   @unique
-  password        String
-  isEmailVerified Boolean  @default(false)
-  role            UserRole @default(USER)
+  id                String       @id @default(uuid())
+  
+  email             String       @unique
+  password          String?
 
-  //TOTP 2FA
+  authProvider      AuthProvider @default(LOCAL)
+  providerAccountId String?
+
+  isEmailVerified Boolean  @default(false)
+  role             UserRole @default(USER)
+
   totpSecret         String?
-  isTwoFactorEnabled Boolean @default(false)
+  isTwoFactorEnabled Boolean  @default(false)
 
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   verificationOtps  VerificationOtp[]
   refreshTokens     RefreshToken[]
   passwordResetOtps PasswordResetOtp[]
+
+  @@unique([authProvider, providerAccountId])
 }
 
 model VerificationOtp {
@@ -40,28 +48,23 @@ model VerificationOtp {
   expiresAt DateTime
   attempts  Int      @default(0)
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model RefreshToken {
-  id        String @id @default(uuid())
-  sessionId String
-
-  userId    String
-  tokenHash String
-
-  userAgent String?
-  ipAddress String?
-
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String
   expiresAt  DateTime
   createdAt  DateTime  @default(now())
+  ipAddress  String?
   lastUsedAt DateTime  @default(now())
+  userAgent  String?
   revokedAt  DateTime?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId  String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([sessionId])
@@ -74,22 +77,9 @@ model PasswordResetOtp {
   expiresAt DateTime
   attempts  Int      @default(0)
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-}
-
-enum AuditEventType {
-  LOGIN_SUCCESS
-  LOGIN_FAILED
-  LOGOUT
-  REGISTER
-  EMAIL_VERIFIED
-  PASSWORD_RESET
-  ACCOUNT_LOCKED
-  TOKEN_REUSE_DETECTED
-  SESSION_REVOKED
 }
 
 model AuditLog {
@@ -104,4 +94,21 @@ model AuditLog {
   @@index([userId])
   @@index([eventType])
   @@index([createdAt])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum AuditEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGOUT
+  REGISTER
+  EMAIL_VERIFIED
+  PASSWORD_RESET
+  ACCOUNT_LOCKED
+  TOKEN_REUSE_DETECTED
+  SESSION_REVOKED
 }

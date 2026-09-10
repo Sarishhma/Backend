@@ -26,6 +26,10 @@ const envSchema = z.object({
 
   RATE_LIMIT_MAX: z.coerce.number().default(10),
   RATE_LIMIT_WINDOW: z.string().default("1 minute"),
+
+  GOOGLE_CLIENT_ID: z.string().min(1),
+GOOGLE_CLIENT_SECRET: z.string().min(1),
+GOOGLE_CALLBACK_URL: z.string().url(),
 });
 
 const parsed = envSchema.safeParse(process.env);

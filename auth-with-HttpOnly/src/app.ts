@@ -10,6 +10,7 @@ import { authRoutes } from "./modules/auth/routes/auth.routes.js";
 import { sessionRoutes } from "./modules/sessions/routes/session.routes.js";
 import { auditRoutes } from "./modules/audit/routes/audit.routes.js";
 import twoFactorRoutes from "./modules/two-factor/routes/two-factor.routes.js";
+import { registerGoogleOAuth } from "./config/google-oauth.js";
 
 export async function buildApp(){//is a function that RETURNS the app, instead of just running it directly here — this is a testability pattern: later, if you write automated tests, you can call buildApp()
     const app = Fastify({
@@ -27,6 +28,7 @@ env.NODE_ENV==="development"
 
 await app.register(errorHandlerPlugin);
 await app.register(corsPlugins);
+await registerGoogleOAuth(app);
 
 await app.register(rateLimitPlugin)
 

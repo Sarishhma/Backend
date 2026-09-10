@@ -12,6 +12,7 @@
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^10.0.0",
+    "@fastify/oauth2": "^8.3.0",
     "@fastify/rate-limit": "^10.0.0",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.0.0",
