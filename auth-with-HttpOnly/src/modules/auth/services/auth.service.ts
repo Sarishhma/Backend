@@ -7,7 +7,7 @@ import { badRequest, conflict, forbidden, notFound, tooManyRequests, unauthorize
 import { generateOtp, getOtpExpiry, hashOtp, isOtpExpired, verifyOtpHash } from "../../../utils/otp.js";
 import { signAccessToken, signRefreshToken, signTwoFactorChallenge, verifyRefreshToken } from "../../../utils/token.js";
 import { createPasswordResetOtp,  createUser, createVerificationOtp, deletePasswordResetOtpsForUser, deleteVerificationOtpsForUser,  findLatestPasswordResetOtp, findLatestVerificationOtp,  finduserByEmail, findUserById, incrementFailedLoginAttempts, incrementOtpAttempts, incrementPasswordResetAttempts, lockUserAccount, markEmailAsVerified, resetLoginAttempts,  updateUserPassword  } from "../repositories/auth.repository.js";
-import { createRefreshToken, findRefreshTokenById, revokeAllUserRefreshTokens, revokeRefreshToken } from "../../sessions/repositories/session.repository.js";
+import { consumeRefreshToken, createRefreshToken, findRefreshTokenById, revokeAllUserRefreshTokens, revokeRefreshToken } from "../../sessions/repositories/session.repository.js";
 import { logAuditEvent } from "../../audit/services/audit.service.js";
 
 
@@ -237,10 +237,19 @@ export async function refreshAccessToken(refreshToken:string){
       if (!user) {
     throw unauthorized("Invalid or expired refresh token");
   }
+  const result = await consumeRefreshToken(tokenrecord.id)
+  if(result.count===0){
+    await  logAuditEvent(
+      "TOKEN_REUSE_DETECTED",
+      tokenrecord.userId
+    )
+await revokeAllUserRefreshTokens(tokenrecord.userId)
+throw unauthorized("Session invalid. Please log in again");
+
+  }
 
    // Rotate: revoke the old refresh token, issue a brand new one
 
-await revokeRefreshToken(tokenrecord.id)// 3. kill the OLD token 
 const newAccessToken= signAccessToken({sub:user.id,email:user.email,role:user.role})
 
 const newTokenId = randomUUID()
