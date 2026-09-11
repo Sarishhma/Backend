@@ -54,20 +54,34 @@ model VerificationOtp {
 }
 
 model RefreshToken {
-  id         String    @id @default(uuid())
+  id         String   @id @default(uuid())
   userId     String
-  tokenHash  String
-  expiresAt  DateTime
-  createdAt  DateTime  @default(now())
-  ipAddress  String?
-  lastUsedAt DateTime  @default(now())
-  userAgent  String?
-  revokedAt  DateTime?
+
+  // Rotation chain
+  familyId   String
+
+  // Login/device session
   sessionId  String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Actual refresh-token credential
+  tokenHash  String
+
+  // Token lifecycle
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+  replacedAt DateTime?
+  revokedAt  DateTime?
+
+  // Device information
+  ipAddress  String?
+  userAgent  String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([sessionId])
+  @@index([familyId])
 }
 
 model PasswordResetOtp {

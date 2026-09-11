@@ -4,6 +4,7 @@ import { prisma } from "../../../lib/prisma.js";
 export function createRefreshToken(
     id: string,
     sessionId: string,
+    familyId:string,
     userId: string,
     tokenHash: string,
     expiresAt: Date,
@@ -14,6 +15,7 @@ export function createRefreshToken(
         data: {
             id,
             sessionId,
+            familyId,
             userId,
             tokenHash,
             expiresAt,
@@ -94,6 +96,18 @@ export function revokeAllUserRefreshTokens(userId: string) {
     return prisma.refreshToken.updateMany({
         where: {
             userId,
+            revokedAt: null,
+        },
+        data: {
+            revokedAt: new Date(),
+        },
+    });
+}
+
+export function revokeTokenFamily(familyId: string) {
+    return prisma.refreshToken.updateMany({
+        where: {
+            familyId,
             revokedAt: null,
         },
         data: {

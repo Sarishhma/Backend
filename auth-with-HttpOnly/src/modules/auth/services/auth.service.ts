@@ -7,7 +7,7 @@ import { badRequest, conflict, forbidden, notFound, tooManyRequests, unauthorize
 import { generateOtp, getOtpExpiry, hashOtp, isOtpExpired, verifyOtpHash } from "../../../utils/otp.js";
 import { signAccessToken, signRefreshToken, signTwoFactorChallenge, verifyRefreshToken } from "../../../utils/token.js";
 import { createPasswordResetOtp,  createUser, createVerificationOtp, deletePasswordResetOtpsForUser, deleteVerificationOtpsForUser,  findLatestPasswordResetOtp, findLatestVerificationOtp,  finduserByEmail, findUserById, incrementFailedLoginAttempts, incrementOtpAttempts, incrementPasswordResetAttempts, lockUserAccount, markEmailAsVerified, resetLoginAttempts,  updateUserPassword  } from "../repositories/auth.repository.js";
-import { consumeRefreshToken, createRefreshToken, findRefreshTokenById, revokeAllUserRefreshTokens, revokeRefreshToken } from "../../sessions/repositories/session.repository.js";
+import { consumeRefreshToken, createRefreshToken, findRefreshTokenById, revokeAllUserRefreshTokens, revokeRefreshToken, revokeTokenFamily } from "../../sessions/repositories/session.repository.js";
 import { logAuditEvent } from "../../audit/services/audit.service.js";
 
 
@@ -192,11 +192,12 @@ export async function loginUser(
 
     const tokenId = randomUUID();
     const sessionId = randomUUID();
+    const familyId=randomUUID()
     const refreshToken=signRefreshToken({sub:user.id,jti:tokenId});
     const refreshTokenHash= hashOtp(refreshToken);// reusing our sha256 hash helper
     const refreshExpiresAt= new Date(Date.now()+REFRESH_TOKEN_MS);
 
-await createRefreshToken(tokenId,sessionId,user.id,refreshTokenHash,refreshExpiresAt,userAgent,ipAddress);
+await createRefreshToken(tokenId,sessionId,familyId,user.id,refreshTokenHash,refreshExpiresAt,userAgent,ipAddress);
 return{
     requiresTwoFactor:false,
     accessToken,
@@ -224,7 +225,7 @@ export async function refreshAccessToken(refreshToken:string){
         "TOKEN_REUSE_DETECTED",
         tokenrecord.userId
      )
-        await revokeAllUserRefreshTokens(tokenrecord.userId)
+await revokeTokenFamily(tokenrecord.familyId);
           throw unauthorized("Session invalid. Please log in again");
     }
     if(isOtpExpired(tokenrecord.expiresAt)){// 1. is the OLD token itself expired?
@@ -240,8 +241,8 @@ export async function refreshAccessToken(refreshToken:string){
       "TOKEN_REUSE_DETECTED",
       tokenrecord.userId
     )
-await revokeAllUserRefreshTokens(tokenrecord.userId)
-throw unauthorized("Session invalid. Please log in again");
+    await revokeTokenFamily(tokenrecord.familyId);
+    throw unauthorized("Session invalid. Please log in again");
 
   }
 
@@ -257,6 +258,7 @@ const newExpireAt = new Date(Date.now()+ REFRESH_TOKEN_MS)
 await createRefreshToken(   
   newTokenId,
     tokenrecord.sessionId,
+    tokenrecord.familyId,
      user.id,
     newRefreshTokenHash,
     newExpireAt,
