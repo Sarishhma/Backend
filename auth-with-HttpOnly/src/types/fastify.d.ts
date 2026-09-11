@@ -1,9 +1,22 @@
 import type { AccessTokenPayload } from "../utils/token.ts";
+import type { FastifyRequest } from "fastify";
 
-declare module "fastify"{
-    interface FastifyRequest{
-        user?:AccessTokenPayload;
-    }
+declare module "fastify" {
+  interface FastifyRequest {
+    user?: AccessTokenPayload;
+  }
+
+  interface FastifyInstance {
+    googleOAuth2: {
+      getAccessTokenFromAuthorizationCodeFlow: (
+        request: FastifyRequest
+      ) => Promise<{
+        token: {
+          access_token: string;
+        };
+      }>;
+    };
+  }
 }
 
 //What this actually does: declare module "fastify" tells TypeScript "I want to add extra properties to this 
