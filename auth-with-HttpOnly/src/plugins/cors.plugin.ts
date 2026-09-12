@@ -1,6 +1,6 @@
 import fp from "fastify-plugin"
 import cors from "@fastify/cors"
-import { fastify, type FastifyPluginAsync } from "fastify"
+import type { FastifyPluginAsync } from "fastify"
 import { env } from "../config/env.js"
 
 export const corsPlugins: FastifyPluginAsync=fp(async(fastify)=>{

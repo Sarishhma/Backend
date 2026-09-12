@@ -1,12 +1,11 @@
-// POST /2fa/setup
+﻿// POST /2fa/setup
 // POST /2fa/verify
-// POST /2fa/disable
+// POST /2fa/complete-login
 
 import type { FastifyPluginAsync } from "fastify";
-import { z } from "zod";
 import { authGuard } from "../../../middleware/authGuard.js";
 import { twoFactorController } from "../controller/two-factor.controller.js";
-import { verifyTwoFactorSchema } from "../schemas/two-factor.schema.js";
+import { completeTwoFactorLoginSchema, verifyTwoFactorSchema } from "../schemas/two-factor.schema.js";
 
 
 const twoFactorRoutes: FastifyPluginAsync = async (fastify) => {
@@ -27,6 +26,18 @@ const twoFactorRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     twoFactorController.verify
+  );
+
+  // Completes 2FA login: accepts challengeToken (from POST /api/auth/login) + TOTP code
+  // No authGuard — the user does not have a real session yet
+  fastify.post(
+    "/complete-login",
+    {
+      schema: {
+        body: completeTwoFactorLoginSchema,
+      },
+    },
+    twoFactorController.completeLogin
   );
 };
 

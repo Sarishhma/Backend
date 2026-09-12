@@ -144,14 +144,15 @@ export function revokeSession(
     });
 }
 
-export function consumeRefreshToken(id:string){
+export function consumeRefreshToken(id: string) {
     return prisma.refreshToken.updateMany({
-        where:{
+        where: {
             id,
-            revokedAt:null
+            revokedAt: null,
         },
-        data:{
-            revokedAt:new Date()
-        }
-    })
+        data: {
+            revokedAt: new Date(),
+            replacedAt: new Date(),
+        },
+    });
 }

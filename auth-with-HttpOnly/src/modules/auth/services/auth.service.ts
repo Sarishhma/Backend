@@ -5,10 +5,11 @@ import { sendOtpEmail } from "../../../lib/email.js";
 import { comparepassword, hashPassword } from "../../../lib/password.js";
 import { badRequest, conflict, forbidden, notFound, tooManyRequests, unauthorized } from "../../../utils/app-error.js";
 import { generateOtp, getOtpExpiry, hashOtp, isOtpExpired, verifyOtpHash } from "../../../utils/otp.js";
-import { signAccessToken, signRefreshToken, signTwoFactorChallenge, verifyRefreshToken } from "../../../utils/token.js";
+import { signAccessToken, signRefreshToken, signTwoFactorChallenge, verifyRefreshToken, verifyTwoFactorChallenge } from "../../../utils/token.js";
 import { createPasswordResetOtp,  createUser, createVerificationOtp, deletePasswordResetOtpsForUser, deleteVerificationOtpsForUser,  findLatestPasswordResetOtp, findLatestVerificationOtp,  finduserByEmail, findUserById, incrementFailedLoginAttempts, incrementOtpAttempts, incrementPasswordResetAttempts, lockUserAccount, markEmailAsVerified, resetLoginAttempts,  updateUserPassword  } from "../repositories/auth.repository.js";
 import { consumeRefreshToken, createRefreshToken, findRefreshTokenById, revokeAllUserRefreshTokens, revokeRefreshToken, revokeTokenFamily } from "../../sessions/repositories/session.repository.js";
 import { logAuditEvent } from "../../audit/services/audit.service.js";
+import { verify } from "otplib";
 
 
 
@@ -374,5 +375,62 @@ export async function resetPassword(email:string,otp:string,newPassword:string){
 
 
 }
+// complete 2FA login — called after the user submits their TOTP code
+export async function completeTwoFactorLogin(
+  challengeToken: string,
+  code: string,
+  userAgent?: string,
+  ipAddress?: string
+) {
+  // 1. Verify the short-lived challenge token (5 min expiry)
+  let payload: { sub: string; type: string };
+  try {
+    payload = verifyTwoFactorChallenge(challengeToken);
+  } catch {
+    throw unauthorized("Invalid or expired 2FA challenge token");
+  }
 
+  // 2. Load the user
+  const user = await findUserById(payload.sub);
+  if (!user) {
+    throw unauthorized("User not found");
+  }
+  if (!user.isTwoFactorEnabled || !user.totpSecret) {
+    throw badRequest("Two-factor authentication is not enabled for this account");
+  }
 
+  // 3. Verify the TOTP code against the stored secret
+  const isValid = verify({ secret: user.totpSecret, token: code });
+  if (!isValid) {
+    throw unauthorized("Invalid 2FA code");
+  }
+
+  // 4. Issue real auth tokens now that 2FA is confirmed
+  await logAuditEvent("LOGIN_SUCCESS", user.id, ipAddress, userAgent);
+
+  const accessToken = signAccessToken({ sub: user.id, email: user.email, role: user.role });
+
+  const tokenId = randomUUID();
+  const sessionId = randomUUID();
+  const familyId = randomUUID();
+  const refreshToken = signRefreshToken({ sub: user.id, jti: tokenId });
+  const refreshTokenHash = hashOtp(refreshToken);
+  const refreshExpiresAt = new Date(Date.now() + REFRESH_TOKEN_MS);
+
+  await createRefreshToken(
+    tokenId,
+    sessionId,
+    familyId,
+    user.id,
+    refreshTokenHash,
+    refreshExpiresAt,
+    userAgent,
+    ipAddress
+  );
+
+  return {
+    accessToken,
+    refreshToken,
+    user: { id: user.id, email: user.email, role: user.role },
+  };
+}

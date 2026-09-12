@@ -32,15 +32,15 @@ export async function buildApp() {
 
   await app.register(errorHandlerPlugin);
   await app.register(corsPlugins);
+  await app.register(cookiePlugin); // must be registered BEFORE @fastify/oauth2, so oauth2 skips its own internal cookie registration
   await registerGoogleOAuth(app);
 
   await app.register(rateLimitPlugin);
 
-  await app.register(cookiePlugin);
   await app.register(authRoutes, { prefix: "/api/auth" }); //That prefix option means /register inside auth.routes.ts actually becomes reachable at /api/auth/register — keeping your URL structure organized and namespaced
   await app.register(sessionRoutes, { prefix: "/api" });
   await app.register(auditRoutes, { prefix: "/api/audit-logs" });
-  app.register(oauthRoutes, { prefix: "/api/auth" });
+  await app.register(oauthRoutes, { prefix: "/api/auth" });
   await app.register(twoFactorRoutes, { prefix: "/api/two-factors" });
   app.get("/health", async () => {
     //This exists purely so you (or a deployment platform like Railway/Vercel later) can quickly check "is the server even running at all," separate from checking whether your actual business logic works
