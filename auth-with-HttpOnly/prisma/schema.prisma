@@ -7,36 +7,23 @@ datasource db {
   provider = "postgresql"
 }
 
-enum AuthProvider {
-  LOCAL
-  GOOGLE
-  GITHUB
-}
-
 model User {
-  id                String       @id @default(uuid())
-  
-  email             String       @unique
-  password          String?
-
-  authProvider      AuthProvider @default(LOCAL)
-  providerAccountId String?
-
-  isEmailVerified Boolean  @default(false)
-  role             UserRole @default(USER)
-
-  totpSecret         String?
-  isTwoFactorEnabled Boolean  @default(false)
-
-  failedLoginAttempts Int       @default(0)
+  id                  String             @id @default(uuid())
+  email               String             @unique
+  password            String?
+  isEmailVerified     Boolean            @default(false)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  role                UserRole           @default(USER)
+  failedLoginAttempts Int                @default(0)
   lockedUntil         DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  verificationOtps  VerificationOtp[]
-  refreshTokens     RefreshToken[]
-  passwordResetOtps PasswordResetOtp[]
+  isTwoFactorEnabled  Boolean            @default(false)
+  totpSecret          String?
+  authProvider        AuthProvider       @default(LOCAL)
+  providerAccountId   String?
+  passwordResetOtps   PasswordResetOtp[]
+  refreshTokens       RefreshToken[]
+  verificationOtps    VerificationOtp[]
 
   @@unique([authProvider, providerAccountId])
 }
@@ -54,30 +41,23 @@ model VerificationOtp {
 }
 
 model RefreshToken {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   userId     String
-
-  // Rotation chain
+  tokenHash  String
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  ipAddress  String?
+  lastUsedAt DateTime  @default(now())
+  userAgent  String?
+  revokedAt  DateTime?
+  sessionId  String
   familyId   String
 
-  // Login/device session
-  sessionId  String
-
-  // Actual refresh-token credential
-  tokenHash  String
-
-  // Token lifecycle
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  lastUsedAt DateTime @default(now())
+  replacedBy String?
   replacedAt DateTime?
-  revokedAt  DateTime?
-
-  // Device information
-  ipAddress  String?
-  userAgent  String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   replacementTokenEncrypted String?
+   
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([sessionId])
@@ -108,6 +88,12 @@ model AuditLog {
   @@index([userId])
   @@index([eventType])
   @@index([createdAt])
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  GITHUB
 }
 
 enum UserRole {

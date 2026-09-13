@@ -10,11 +10,13 @@ import { createPasswordResetOtp,  createUser, createVerificationOtp, deletePassw
 import { consumeRefreshToken, createRefreshToken, findRefreshTokenById, revokeAllUserRefreshTokens, revokeRefreshToken, revokeTokenFamily } from "../../sessions/repositories/session.repository.js";
 import { logAuditEvent } from "../../audit/services/audit.service.js";
 import { verify } from "otplib";
+import { decrypt, encrypt } from "../../../lib/encryption.js";
 
 
 
 
 const REFRESH_TOKEN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+const REFRESH_TOKEN_GRACE_MS = 5000;
 const MAX_FAILED_ATTEMPTS=5;
 
 function calculateLockoutDuration(failedLoginAttempts:number):number {
@@ -219,42 +221,116 @@ export async function refreshAccessToken(refreshToken:string){
     if(!tokenrecord){
          throw unauthorized("Invalid or expired refresh Token")
     }
-    if(tokenrecord.revokedAt){
-         // This token was already used/revoked once but is being used again —
-    // a strong signal it was stolen. Revoke ALL of this user's sessions as a precaution.
-     await logAuditEvent(
-        "TOKEN_REUSE_DETECTED",
-        tokenrecord.userId
-     )
-await revokeTokenFamily(tokenrecord.familyId);
-          throw unauthorized("Session invalid. Please log in again");
-    }
-    if(isOtpExpired(tokenrecord.expiresAt)){// 1. is the OLD token itself expired?
-          throw unauthorized("Invalid or expired refresh token");
-    }
+
     const user = await findUserById(tokenrecord.userId)// 2. fetch the user this token belongs to
       if (!user) {
     throw unauthorized("Invalid or expired refresh token");
   }
-  const result = await consumeRefreshToken(tokenrecord.id)
-  if(result.count===0){
-    await  logAuditEvent(
-      "TOKEN_REUSE_DETECTED",
-      tokenrecord.userId
-    )
-    await revokeTokenFamily(tokenrecord.familyId);
-    throw unauthorized("Session invalid. Please log in again");
 
-  }
+if (tokenrecord.revokedAt) {
+    // Was this token normally replaced recently?
+    if (tokenrecord.replacedAt) {
+        const timeSinceReplacement =
+            Date.now() - tokenrecord.replacedAt.getTime();
+
+      if (timeSinceReplacement <= REFRESH_TOKEN_GRACE_MS &&
+    tokenrecord.replacementTokenEncrypted
+        ) {
+            const replacementToken = decrypt(
+                tokenrecord.replacementTokenEncrypted
+            );
+
+            const accessToken = signAccessToken({
+                sub: user.id,
+                email: user.email,
+                role: user.role,
+            });
+
+            return {
+                accessToken,
+                refreshToken: replacementToken,
+            };
+        }
+    }
+
+    // Old token was reused suspiciously
+    await logAuditEvent(
+        "TOKEN_REUSE_DETECTED",
+        tokenrecord.userId
+    );
+
+    await revokeTokenFamily(tokenrecord.familyId);
+
+    throw unauthorized(
+        "Session invalid. Please log in again"
+    );
+}
+    if(isOtpExpired(tokenrecord.expiresAt)){// 1. is the OLD token itself expired?
+          throw unauthorized("Invalid or expired refresh token");
+    }
+
 
    // Rotate: revoke the old refresh token, issue a brand new one
 
 const newAccessToken= signAccessToken({sub:user.id,email:user.email,role:user.role})
 
 const newTokenId = randomUUID()
-const newRefreshToken= signRefreshToken({sub:user.id,jti:newTokenId})
+const newRefreshToken= signRefreshToken({
+  sub:user.id,
+  jti:newTokenId
+})
 const newRefreshTokenHash= hashOtp(newRefreshToken)
 const newExpireAt = new Date(Date.now()+ REFRESH_TOKEN_MS)
+const replacementTokenEncrypted = encrypt(newRefreshToken);
+
+const result = await consumeRefreshToken(
+    tokenrecord.id,
+    newTokenId,
+        replacementTokenEncrypted
+);
+if (result.count === 0) {
+    const updatedTokenRecord = await findRefreshTokenById(
+        tokenrecord.id
+    );
+
+    if (
+        updatedTokenRecord?.revokedAt &&
+        updatedTokenRecord.replacedAt &&
+        updatedTokenRecord.replacementTokenEncrypted
+    ) {
+        const timeSinceReplacement =
+            Date.now() -
+            updatedTokenRecord.replacedAt.getTime();
+
+        if (timeSinceReplacement <= REFRESH_TOKEN_GRACE_MS) {
+            const replacementToken = decrypt(
+                updatedTokenRecord.replacementTokenEncrypted
+            );
+
+            const accessToken = signAccessToken({
+                sub: user.id,
+                email: user.email,
+                role: user.role,
+            });
+
+            return {
+                accessToken,
+                refreshToken: replacementToken,
+            };
+        }
+    }
+
+    await logAuditEvent(
+        "TOKEN_REUSE_DETECTED",
+        tokenrecord.userId
+    );
+
+    await revokeTokenFamily(tokenrecord.familyId);
+
+    throw unauthorized(
+        "Session invalid. Please log in again"
+    );
+}
 
 await createRefreshToken(   
   newTokenId,
