@@ -1,19 +1,8 @@
-# 🔐 auth-with-HttpOnly
-
-A production-grade authentication & session management backend — built to eliminate the security shortcuts most tutorial auth systems take (localStorage tokens, plaintext OTPs, fixed lockouts, no reuse detection).
+# Auth backend
 
 **Stack:** Node.js · Fastify 5 · TypeScript · Prisma · PostgreSQL · Zod · JWT · otplib · OAuth2
 
 ---
-
-## Why this exists
-
-Most "auth tutorials" store JWTs in `localStorage` and call it done. That's fine for a demo, catastrophic in production — one XSS bug and every logged-in user's session is gone.
-
-This project takes the defense-in-depth route instead: HttpOnly cookies, rotating refresh tokens with theft detection, hashed OTPs, adaptive lockouts, and real 2FA — the stuff that separates "it works" from "it's safe to ship."
-
----
-
 ## Architecture at a glance
 
 ```mermaid
