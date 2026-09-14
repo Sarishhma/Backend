@@ -1,5 +1,5 @@
 import type { AccessTokenPayload } from "../utils/token.ts";
-import type { FastifyRequest } from "fastify";
+import type { FastifyRequest, FastifyReply } from "fastify";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -9,7 +9,8 @@ declare module "fastify" {
   interface FastifyInstance {
     googleOAuth2: {
       getAccessTokenFromAuthorizationCodeFlow: (
-        request: FastifyRequest
+        request: FastifyRequest,
+        reply?: FastifyReply
       ) => Promise<{
         token: {
           access_token: string;

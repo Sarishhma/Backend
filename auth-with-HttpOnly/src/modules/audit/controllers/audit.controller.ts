@@ -1,13 +1,13 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { getAuditLogs } from "../services/audit.service.js";
-import { auditLogQuerySchema } from "../schema/audit.schema.js";
+import { type AuditLogQueryInput, auditLogQuerySchema } from "../schema/audit.schema.js";
 
 export async function getAuditLogsController(
-    request: FastifyRequest,
+    request: FastifyRequest<{ Querystring: AuditLogQueryInput }>,
     reply: FastifyReply
 ) {
-    const query = auditLogQuerySchema.parse(request.query);
+    const query = request.query;
 
     const result = await getAuditLogs(
         query.page,

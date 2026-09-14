@@ -20,12 +20,10 @@ export async function getSessionsHandler(
 
 
 export async function revokeSessionHandler(
-    request: FastifyRequest<{
-        Params: sessionParamsInput;
-    }>,
+    request: FastifyRequest,
     reply: FastifyReply
 ) {
-    const { sessionId } = request.params;
+    const { sessionId } = request.params as sessionParamsInput;
 
     const result = await revokeSession(
         sessionId,

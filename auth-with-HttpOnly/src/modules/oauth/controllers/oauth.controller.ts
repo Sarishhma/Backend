@@ -29,54 +29,81 @@ export async function googleCallbackHandler(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  const {
-    token: { access_token },
-  } =
-    await request.server.googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(
-      request
-    );
+  const query = request.query as {
+    code?: string;
+    state?: string;
+    error?: string;
+    error_description?: string;
+  };
 
-  const response = await fetch(
-    "https://openidconnect.googleapis.com/v1/userinfo",
-    {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      },
-    }
-  );
-
-  if (!response.ok) {
-    return reply.status(401).send({
-      error: "Unable to get Google account information",
-    });
-  }
-
-  const googleUser = (await response.json()) as GoogleUserInfo;
-
-  if (!googleUser.email || !googleUser.email_verified) {
-    return reply.status(401).send({
-      error: "Google email is not verified",
-    });
-  }
-
-  const result = await loginWithOAuth(
-    "GOOGLE",
-    googleUser,
-    request.headers["user-agent"],
-    request.ip
-  );
-
-  if (result.requiresTwoFactor) {
+  if (query.error) {
     return reply.redirect(
-      `${env.FRONTEND_ORIGIN}/login?oauth2fa=true&challengeToken=${result.challengeToken}`
+      `${env.FRONTEND_ORIGIN}/login?error=${encodeURIComponent(
+        query.error_description || query.error
+      )}`
     );
   }
 
-  setAuthCookies(
-    reply,
-    result.accessToken,
-    result.refreshToken
-  );
+  try {
+    const {
+      token: { access_token },
+    } =
+      await request.server.googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(
+        request,
+        reply
+      );
 
-  return reply.redirect(`${env.FRONTEND_ORIGIN}/`);
+    const response = await fetch(
+      "https://openidconnect.googleapis.com/v1/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return reply.redirect(
+        `${env.FRONTEND_ORIGIN}/login?error=${encodeURIComponent(
+          "Unable to get Google account information"
+        )}`
+      );
+    }
+
+    const googleUser = (await response.json()) as GoogleUserInfo;
+
+    if (!googleUser.email || !googleUser.email_verified) {
+      return reply.redirect(
+        `${env.FRONTEND_ORIGIN}/login?error=${encodeURIComponent(
+          "Google email is not verified"
+        )}`
+      );
+    }
+
+    const result = await loginWithOAuth(
+      "GOOGLE",
+      googleUser,
+      request.headers["user-agent"],
+      request.ip
+    );
+
+    if (result.requiresTwoFactor) {
+      return reply.redirect(
+        `${env.FRONTEND_ORIGIN}/login?oauth2fa=true&challengeToken=${result.challengeToken}`
+      );
+    }
+
+    setAuthCookies(
+      reply,
+      result.accessToken,
+      result.refreshToken
+    );
+
+    return reply.redirect(`${env.FRONTEND_ORIGIN}/`);
+  } catch (err: any) {
+    const message = err?.message || "Google authentication failed";
+    return reply.redirect(
+      `${env.FRONTEND_ORIGIN}/login?error=${encodeURIComponent(message)}`
+    );
+  }
 }

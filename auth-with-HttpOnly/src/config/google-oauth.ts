@@ -23,5 +23,11 @@ export async function registerGoogleOAuth(app: FastifyInstance) {
 
     startRedirectPath: "/api/auth/google",
     callbackUri: env.GOOGLE_CALLBACK_URL,
+    schema: {
+      tags: ["OAuth"],
+      summary: "Initiate Google OAuth2 login",
+      description:
+        "Redirects the user to Google's OAuth2 consent screen. Automatically sets state cookie for CSRF protection.",
+    },
   });
 }

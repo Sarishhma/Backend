@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { userSchema } from "../../../common/common.schema.js";
 
 export const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -50,6 +51,20 @@ export const resetPasswordSchema= z.object({
     .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
     .regex(/[0-9]/, "Password must contain at least one number")
 })
+export const authTokensResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    accessToken: z.string(),
+    refreshToken: z.string(),
+    accessTokenExpiresIn: z.number().int(),
+    refreshTokenExpiresIn: z.number().int(),
+    user: userSchema,
+  }),
+});
+
+export const meResponseSchema = z.object({
+  user: userSchema,
+});
 
 
 export type RegisterInput = z.infer<typeof registerSchema>;

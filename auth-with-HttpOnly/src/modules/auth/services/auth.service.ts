@@ -18,6 +18,7 @@ import { decrypt, encrypt } from "../../../lib/encryption.js";
 const REFRESH_TOKEN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 const REFRESH_TOKEN_GRACE_MS = 5000;
 const MAX_FAILED_ATTEMPTS=5;
+const OTP_RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds
 
 function calculateLockoutDuration(failedLoginAttempts:number):number {
      // Number of times they've been locked out before, based on how far past the threshold they are
@@ -380,6 +381,22 @@ if(!user){
 if(user.isEmailVerified){
     throw badRequest("This email is already verified")
 }
+    // Check resend cooldown
+ const latestOtp = await findLatestVerificationOtp(user.id);
+     if (latestOtp) {
+        const timeSinceLastOtp =
+            Date.now() - latestOtp.createdAt.getTime();
+
+        if (timeSinceLastOtp < OTP_RESEND_COOLDOWN_MS) {
+            const secondsRemaining = Math.ceil(
+                (OTP_RESEND_COOLDOWN_MS - timeSinceLastOtp) / 1000
+            );
+
+            throw tooManyRequests(
+                `Please wait ${secondsRemaining} seconds before requesting a new code`
+            );
+        }
+    }
 await deleteVerificationOtpsForUser(user.id)
 
 const otp = generateOtp();

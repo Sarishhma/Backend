@@ -90,6 +90,7 @@ export async function loginWithOAuth(
   // Create refresh token
   const tokenId = randomUUID();
   const sessionId = randomUUID();
+  const familyId = randomUUID();
 
   const refreshToken = signRefreshToken({
     sub: user.id,
@@ -105,6 +106,7 @@ export async function loginWithOAuth(
   await createRefreshToken(
     tokenId,
     sessionId,
+    familyId,
     user.id,
     refreshTokenHash,
     refreshExpiresAt,
