@@ -103,38 +103,6 @@ Full interactive docs (request/response schemas, try-it-out): **`/docs`** once t
 
 ---
 
-## Data model (simplified)
-
-```mermaid
-erDiagram
-    User ||--o{ RefreshToken : owns
-    User ||--o{ VerificationOtp : has
-    User ||--o{ PasswordResetOtp : has
-    User ||--o{ AuditLog : generates
-
-    User {
-        String id PK
-        String email UK
-        String password "bcrypt hash, nullable for OAuth"
-        AuthProvider authProvider "LOCAL | GOOGLE"
-        Boolean isEmailVerified
-        Boolean isTwoFactorEnabled
-        Int failedLoginAttempts
-        DateTime lockedUntil
-    }
-
-    RefreshToken {
-        String id PK "jti"
-        String familyId "rotation chain"
-        String sessionId "device"
-        String tokenHash
-        DateTime revokedAt
-        DateTime expiresAt
-    }
-```
-
----
-
 ## Threat model summary
 
 | Threat | Defense |
@@ -163,9 +131,6 @@ npx prisma migrate dev
 npm run dev
 ```
 
-Server starts at `http://127.0.0.1:3000` — interactive API docs at `http://127.0.0.1:3000/docs`.
-
----
 
 ## Deep dive
 
