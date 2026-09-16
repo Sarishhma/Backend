@@ -1,19 +1,18 @@
-// src/modules/.../schemas/common.schema.ts
+﻿// src/common/common.schema.ts
 import { z } from "zod";
 
 export const errorResponseSchema = z.object({
-  success: z.literal(false),
-  message: z.string(),
-  statusCode: z.number().int(),
+  error: z.string().describe("Error message"),
+  details: z.any().optional().describe("Validation failure details if applicable"),
 });
 
 export const messageResponseSchema = z.object({
-  success: z.literal(true),
-  message: z.string(),
+  message: z.string().describe("Informational response message"),
+  userId: z.string().optional().describe("User ID if returned by registration"),
 });
 
 export const userSchema = z.object({
-  sub: z.string(),
-    email: z.string().email(),
-  
+  sub: z.string().describe("User ID"),
+  email: z.string().email().describe("User email address"),
+  role: z.enum(["USER", "ADMIN"]).optional().describe("User role"),
 });

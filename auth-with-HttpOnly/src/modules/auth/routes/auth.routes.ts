@@ -10,7 +10,8 @@ import {
   resendOtpSchema,
   resetPasswordSchema,
   verifyEmailSchema,
-  authTokensResponseSchema,
+  loginResponseSchema,
+  refreshResponseSchema,
   meResponseSchema,
 } from "../schemas/auth.schema.js";
 
@@ -48,9 +49,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   async (request, reply) => {
     if (!request.user) {
       return reply.status(401).send({
-        success: false,
-        message: "Unauthorized",
-        statusCode: 401,
+        error: "Unauthorized",
       });
     }
 
@@ -138,10 +137,10 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Authentication"],
         summary: "Login with email and password",
         description:
-          "Authenticates a user and returns an access token and refresh token pair.",
+          "Authenticates user credentials and sets HttpOnly cookies. If 2FA is enabled, returns challengeToken for /api/two-factors/complete-login.",
         body: loginSchema,
         response: {
-          200: authTokensResponseSchema,
+          200: loginResponseSchema,
           400: errorResponseSchema,
           401: errorResponseSchema,
         },
@@ -157,10 +156,11 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         tags: ["Authentication"],
         summary: "Refresh access token",
         description:
-          "Exchanges a valid refresh token for a new access + refresh token pair (rotation).",
-        body: refreshTokenSchema,
+          "Exchanges the valid HttpOnly refresh token cookie for a new access + refresh token pair (rotation).",
+        security: [{ cookieAuth: [] }],
+        body: refreshTokenSchema.optional(),
         response: {
-          200: authTokensResponseSchema,
+          200: refreshResponseSchema,
           401: errorResponseSchema,
         },
       },
@@ -174,8 +174,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       schema: {
         tags: ["Authentication"],
         summary: "Logout",
-        description: "Revokes the provided refresh token, ending the session.",
-        body: logoutSchema,
+        description: "Revokes the active refresh token session and clears HttpOnly auth cookies.",
+        security: [{ cookieAuth: [] }],
+        body: logoutSchema.optional(),
         response: {
           200: messageResponseSchema,
           400: errorResponseSchema,

@@ -85,7 +85,10 @@ export async function loginHandler(
     result.refreshToken
   );
 
-  return reply.status(200).send({ user: result.user });
+  return reply.status(200).send({
+    requiresTwoFactor: false,
+    user: result.user,
+  });
 }
 export async function refreshHandler(
   request: FastifyRequest,
